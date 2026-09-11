@@ -39,28 +39,24 @@ jobs:
           echo "GEMINI_API_KEY=" >> local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
 
-      - name: Verify environment
-        run: |
-          echo "Java version:"
-          java -version
-          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          ls $ANDROID_SDK_ROOT/platforms/ || echo "No platforms dir"
-          echo "gradlew permissions:"
-          ls -la gradlew
-          echo "gradle-wrapper.jar:"
-          ls -la gradle/wrapper/gradle-wrapper.jar
-          echo "local.properties:"
-          cat local.properties
-
-      - name: Test gradlew
-        run: |
-          ./gradlew --version
-
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        id: build
+        run: |
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          exit ${PIPESTATUS[0]}
+        continue-on-error: true
+
+      - name: Show errors if build failed
+        if: steps.build.outcome == 'failure'
+        run: |
+          echo "======= BUILD ERRORS ======="
+          grep -n "error:\|^e:\|Caused by:\|> Could not\|FAILURE\|Exception\|Unresolved reference\|None of the following" build.log | head -80
+          echo "======= LAST 60 LINES ======="
+          tail -60 build.log
+          exit 1
 
       - name: Upload APK
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: DietTracker-debug-apk
