@@ -39,16 +39,26 @@ jobs:
           echo "GEMINI_API_KEY=" >> local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
 
-      - name: Build debug APK
-        shell: bash
+      - name: Verify environment
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-          EXIT_CODE=${PIPESTATUS[0]}
-          if [ "$EXIT_CODE" != "0" ]; then
-            echo "=== GRADLE ERRORS ==="
-            grep -E "^e:|error:|FAILED|Exception in|Caused by:|BUILD FAILED" build.log || tail -50 build.log
-            exit 1
-          fi
+          echo "Java version:"
+          java -version
+          echo "ANDROID_SDK_ROOT: $ANDROID_SDK_ROOT"
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          ls $ANDROID_SDK_ROOT/platforms/ || echo "No platforms dir"
+          echo "gradlew permissions:"
+          ls -la gradlew
+          echo "gradle-wrapper.jar:"
+          ls -la gradle/wrapper/gradle-wrapper.jar
+          echo "local.properties:"
+          cat local.properties
+
+      - name: Test gradlew
+        run: |
+          ./gradlew --version
+
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
