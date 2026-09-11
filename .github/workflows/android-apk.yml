@@ -19,10 +19,19 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradle-
+
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Create local.properties with empty API keys
+      - name: Create local.properties
         run: |
           echo "EDAMAM_APP_ID=" > local.properties
           echo "EDAMAM_APP_KEY=" >> local.properties
@@ -31,11 +40,13 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
 
       - name: Build debug APK
+        shell: bash
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log; BUILD_EXIT=${PIPESTATUS[0]}
-          if [ "$BUILD_EXIT" != "0" ]; then
-            echo "## Build Errors" >> $GITHUB_STEP_SUMMARY
-            grep -E "error:|FAILED|Exception|Caused by:|> Task" build.log | tail -60 >> $GITHUB_STEP_SUMMARY
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
+          EXIT_CODE=${PIPESTATUS[0]}
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "=== GRADLE ERRORS ==="
+            grep -E "^e:|error:|FAILED|Exception in|Caused by:|BUILD FAILED" build.log || tail -50 build.log
             exit 1
           fi
 
