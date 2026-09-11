@@ -41,22 +41,24 @@ jobs:
 
       - name: Build debug APK
         id: build
+        shell: bash
         run: |
-          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee build.log
-          exit ${PIPESTATUS[0]}
-        continue-on-error: true
+          ./gradlew assembleDebug --no-daemon --stacktrace > build.log 2>&1 || true
 
-      - name: Show errors if build failed
-        if: steps.build.outcome == 'failure'
+      - name: Parse and display errors
+        shell: bash
         run: |
-          echo "======= BUILD ERRORS ======="
-          grep -n "error:\|^e:\|Caused by:\|> Could not\|FAILURE\|Exception\|Unresolved reference\|None of the following" build.log | head -80
-          echo "======= LAST 60 LINES ======="
-          tail -60 build.log
-          exit 1
+          echo "=== BUILD LOG TAIL ==="
+          tail -100 build.log
+          echo "=== CHECKING APK ==="
+          if ls app/build/outputs/apk/debug/*.apk 1>/dev/null 2>&1; then
+            echo "APK BUILD SUCCESSFUL"
+          else
+            echo "APK NOT FOUND - BUILD FAILED"
+            exit 1
+          fi
 
       - name: Upload APK
-        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: DietTracker-debug-apk
