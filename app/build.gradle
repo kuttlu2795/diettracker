@@ -129,7 +129,7 @@ dependencies {
     // e.g. boAt Wearables, Fitbit, Galaxy Wearable, if they sync to Health Connect on-device).
     // Check https://developer.android.com/health-and-fitness/guides/health-connect/setup for
     // the latest version if this fails to resolve.
-    implementation 'androidx.health.connect:connect-client:1.1.0-alpha07'
+    implementation 'androidx.health.connect:connect-client:1.1.0-alpha11'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'
