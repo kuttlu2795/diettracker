@@ -42,28 +42,27 @@ jobs:
       - name: Build debug APK
         id: build
         shell: bash
-        run: ./gradlew assembleDebug --no-daemon --stacktrace > build.log 2>&1; echo "exit=$?" >> $GITHUB_OUTPUT
-
-      - name: Show compile errors
-        if: always()
-        shell: bash
         run: |
-          if [ -f build.log ]; then
-            echo "=== ERRORS ===" 
-            grep -E "^e:|error:|Unresolved reference|None of the following|overload resolution|is not a subtype" build.log | head -60 || true
-            echo "=== LAST 80 LINES ==="
-            tail -80 build.log
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/build.log
+          BUILD_RC=${PIPESTATUS[0]}
+          if [ $BUILD_RC -ne 0 ]; then
+            # Write errors to step summary - accessible via GitHub API
+            {
+              echo "## Build Errors"
+              echo '```'
+              grep -E "error:|^e:|Unresolved reference|None of the following|overload|not a subtype|cannot access|unresolved" /tmp/build.log | head -50
+              echo "---LAST80---"
+              tail -80 /tmp/build.log
+              echo '```'
+            } >> $GITHUB_STEP_SUMMARY
+            exit 1
           fi
 
       - name: Upload APK artifact
-        if: steps.build.outputs.exit == '0'
         uses: actions/upload-artifact@v4
         with:
           name: DietTracker-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
-
-      - name: Fail if build failed
-        if: steps.build.outputs.exit != '0'
-        run: exit 1
