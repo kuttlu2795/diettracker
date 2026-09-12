@@ -40,28 +40,33 @@ jobs:
           echo "GEMINI_API_KEY=" >> local.properties
 
       - name: Build debug APK
-        id: build
+        id: gradle_build
         shell: bash
         run: |
           set +e
           ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 > build.log
           EXIT=$?
           set -e
+          # Post the error to a gist for easy reading
           if [ $EXIT -ne 0 ]; then
-            # Extract kotlin/java compile errors - write to check summary
-            ERRORS=$(grep -n "error:\|Unresolved reference\|None of the following\|Not enough information\|Overload resolution" build.log | head -60)
-            LAST=$(tail -80 build.log)
-            echo "## Build Failed" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "$ERRORS" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "--- LAST 80 LINES ---" >> $GITHUB_STEP_SUMMARY
-            echo "$LAST" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            # Also create a gist-like output via check annotation
-            echo "errors<<ERREOF" >> $GITHUB_OUTPUT
-            echo "$ERRORS" >> $GITHUB_OUTPUT
-            echo "ERREOF" >> $GITHUB_OUTPUT
+            ERRORS=$(grep -E "^e:|error:|Unresolved reference|None of the following candidates|Caused by:|BUILD FAILED|FAILURE:" build.log | head -100)
+            TAIL=$(tail -80 build.log)
+            GIST_PAYLOAD=$(python3 -c "
+import json, sys
+content = open('build.log').read()
+# Get last 5000 chars
+content = content[-5000:]
+payload = {'description': 'DietTracker build error', 'public': False, 'files': {'build_error.txt': {'content': content}}}
+print(json.dumps(payload))
+")
+            curl -s -X POST https://api.github.com/gists \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: application/json" \
+              -d "$GIST_PAYLOAD" | python3 -c "import json,sys; d=json.load(sys.stdin); print('GIST URL:', d.get('html_url','error'))"
+            echo "=== ERROR LINES ==="
+            echo "$ERRORS"
+            echo "=== LAST 80 LINES ==="  
+            echo "$TAIL"
             exit $EXIT
           fi
 
