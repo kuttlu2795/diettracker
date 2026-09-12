@@ -40,7 +40,30 @@ jobs:
           echo "GEMINI_API_KEY=" >> local.properties
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        id: build
+        shell: bash
+        run: |
+          set +e
+          ./gradlew assembleDebug --no-daemon --stacktrace 2>&1 > build.log
+          EXIT=$?
+          set -e
+          if [ $EXIT -ne 0 ]; then
+            # Extract kotlin/java compile errors - write to check summary
+            ERRORS=$(grep -n "error:\|Unresolved reference\|None of the following\|Not enough information\|Overload resolution" build.log | head -60)
+            LAST=$(tail -80 build.log)
+            echo "## Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$ERRORS" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "--- LAST 80 LINES ---" >> $GITHUB_STEP_SUMMARY
+            echo "$LAST" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            # Also create a gist-like output via check annotation
+            echo "errors<<ERREOF" >> $GITHUB_OUTPUT
+            echo "$ERRORS" >> $GITHUB_OUTPUT
+            echo "ERREOF" >> $GITHUB_OUTPUT
+            exit $EXIT
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
