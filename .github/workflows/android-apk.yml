@@ -40,12 +40,30 @@ jobs:
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> local.properties
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        id: build
+        shell: bash
+        run: ./gradlew assembleDebug --no-daemon --stacktrace > build.log 2>&1; echo "exit=$?" >> $GITHUB_OUTPUT
+
+      - name: Show compile errors
+        if: always()
+        shell: bash
+        run: |
+          if [ -f build.log ]; then
+            echo "=== ERRORS ===" 
+            grep -E "^e:|error:|Unresolved reference|None of the following|overload resolution|is not a subtype" build.log | head -60 || true
+            echo "=== LAST 80 LINES ==="
+            tail -80 build.log
+          fi
 
       - name: Upload APK artifact
+        if: steps.build.outputs.exit == '0'
         uses: actions/upload-artifact@v4
         with:
           name: DietTracker-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Fail if build failed
+        if: steps.build.outputs.exit != '0'
+        run: exit 1
