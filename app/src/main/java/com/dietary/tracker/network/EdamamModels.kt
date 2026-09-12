@@ -15,7 +15,17 @@ data class EdamamNutrients(
     @SerializedName("CHOCDF") val carbs: EdamamNutrientValue? = null,
     @SerializedName("FIBTG") val fiber: EdamamNutrientValue? = null,
     @SerializedName("SUGAR") val sugar: EdamamNutrientValue? = null,
-    @SerializedName("NA") val sodium: EdamamNutrientValue? = null
+    @SerializedName("NA") val sodium: EdamamNutrientValue? = null,
+    @SerializedName("VITC") val vitaminC: EdamamNutrientValue? = null,
+    @SerializedName("VITA_RAE") val vitaminA: EdamamNutrientValue? = null,
+    @SerializedName("CA") val calcium: EdamamNutrientValue? = null,
+    @SerializedName("FE") val iron: EdamamNutrientValue? = null,
+    @SerializedName("K") val potassium: EdamamNutrientValue? = null,
+    @SerializedName("MG") val magnesium: EdamamNutrientValue? = null,
+    @SerializedName("ZN") val zinc: EdamamNutrientValue? = null,
+    @SerializedName("VITD") val vitaminD: EdamamNutrientValue? = null,
+    @SerializedName("VITB12") val vitaminB12: EdamamNutrientValue? = null,
+    @SerializedName("FOLDFE") val folate: EdamamNutrientValue? = null
 )
 
 data class EdamamNutrientValue(
@@ -39,6 +49,16 @@ fun EdamamNutritionResponse.toNutritionResult(displayName: String): NutritionRes
         fatPer100g = (n.fat?.quantity ?: 0.0) * factor,
         fiberPer100g = (n.fiber?.quantity ?: 0.0) * factor,
         sodiumMgPer100g = (n.sodium?.quantity ?: 0.0) * factor,
+        vitaminCMgPer100g = (n.vitaminC?.quantity ?: 0.0) * factor,
+        vitaminAMcgPer100g = (n.vitaminA?.quantity ?: 0.0) * factor,
+        calciumMgPer100g = (n.calcium?.quantity ?: 0.0) * factor,
+        ironMgPer100g = (n.iron?.quantity ?: 0.0) * factor,
+        potassiumMgPer100g = (n.potassium?.quantity ?: 0.0) * factor,
+        magnesiumMgPer100g = (n.magnesium?.quantity ?: 0.0) * factor,
+        zincMgPer100g = (n.zinc?.quantity ?: 0.0) * factor,
+        vitaminDMcgPer100g = (n.vitaminD?.quantity ?: 0.0) * factor,
+        vitaminB12McgPer100g = (n.vitaminB12?.quantity ?: 0.0) * factor,
+        folateMcgPer100g = (n.folate?.quantity ?: 0.0) * factor,
         source = "Edamam (analyzed from: \"$displayName\")"
     )
 }

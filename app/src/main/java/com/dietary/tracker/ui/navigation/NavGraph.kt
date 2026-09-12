@@ -16,6 +16,9 @@ import androidx.navigation.compose.rememberNavController
 import com.dietary.tracker.ui.ViewModelFactory
 import com.dietary.tracker.ui.screens.bmi.BmiScreen
 import com.dietary.tracker.ui.screens.bmi.BmiViewModel
+import com.dietary.tracker.ui.screens.chandra.ChandraCommandsScreen
+import com.dietary.tracker.ui.screens.chandra.ChandraScreen
+import com.dietary.tracker.ui.screens.chandra.ChandraViewModel
 import com.dietary.tracker.ui.screens.dashboard.DashboardScreen
 import com.dietary.tracker.ui.screens.dashboard.DashboardViewModel
 import com.dietary.tracker.ui.screens.foodentry.AddFoodScreen
@@ -26,9 +29,6 @@ import com.dietary.tracker.ui.screens.history.HistoryScreen
 import com.dietary.tracker.ui.screens.history.HistoryViewModel
 import com.dietary.tracker.ui.screens.profile.ProfileScreen
 import com.dietary.tracker.ui.screens.profile.ProfileViewModel
-import com.dietary.tracker.ui.screens.profile.WearableScreen
-import com.dietary.tracker.ui.screens.recipes.RecipeScreen
-import com.dietary.tracker.ui.screens.voice.ChandraScreen
 
 sealed class Screen(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
     object Dashboard : Screen("dashboard", "Home", Icons.Filled.Home)
@@ -39,15 +39,14 @@ sealed class Screen(val route: String, val label: String, val icon: androidx.com
     object AddFood : Screen("add_food", "Add Food", Icons.Filled.Add)
     object BarcodeScan : Screen("barcode_scan", "Barcode", Icons.Filled.QrCodeScanner)
     object PhotoScan : Screen("photo_scan", "Photo", Icons.Filled.CameraAlt)
-    object Wearables : Screen("wearables", "Wearables", Icons.Filled.Watch)
-    object Recipes : Screen("recipes", "My Meals", Icons.Filled.RestaurantMenu)
     object Chandra : Screen("chandra", "Chandra", Icons.Filled.Mic)
+    object ChandraCommands : Screen("chandra_commands", "Voice Commands", Icons.Filled.Tune)
 }
 
 private val bottomNavItems = listOf(Screen.Dashboard, Screen.Bmi, Screen.History, Screen.Water, Screen.Profile)
 
 @Composable
-fun AppNavGraph(factory: ViewModelFactory, startRoute: String = Screen.Dashboard.route) {
+fun AppNavGraph(factory: ViewModelFactory) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -74,14 +73,15 @@ fun AppNavGraph(factory: ViewModelFactory, startRoute: String = Screen.Dashboard
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = startRoute,
+            startDestination = Screen.Dashboard.route,
             modifier = Modifier.padding(padding)
         ) {
             composable(Screen.Dashboard.route) {
                 val vm: DashboardViewModel = viewModel(factory = factory)
                 DashboardScreen(
                     viewModel = vm,
-                    onAddFoodClick = { navController.navigate(Screen.AddFood.route) }
+                    onAddFoodClick = { navController.navigate(Screen.AddFood.route) },
+                    onChandraClick = { navController.navigate(Screen.Chandra.route) }
                 )
             }
             composable(Screen.History.route) {
@@ -98,17 +98,8 @@ fun AppNavGraph(factory: ViewModelFactory, startRoute: String = Screen.Dashboard
             }
             composable(Screen.Profile.route) {
                 val vm: ProfileViewModel = viewModel(factory = factory)
-                ProfileScreen(viewModel = vm, onWearablesClick = { navController.navigate(Screen.Wearables.route) }, onRecipesClick = { navController.navigate(Screen.Recipes.route) }, onChandraClick = { navController.navigate(Screen.Chandra.route) })
+                ProfileScreen(viewModel = vm)
             }
-
-            composable(Screen.Wearables.route) {
-                WearableScreen(onBack = { navController.popBackStack() })
-            }
-
-            composable(Screen.Recipes.route) {
-                RecipeScreen(repository = factory.repositoryForUi(), onBack = { navController.popBackStack() })
-            }
-            composable(Screen.Chandra.route) { ChandraScreen(onBack = { navController.popBackStack() }) }
             composable(Screen.AddFood.route) { backStackEntry ->
                 val vm: AddFoodViewModel = viewModel(factory = factory)
                 AddFoodScreen(
@@ -144,6 +135,27 @@ fun AppNavGraph(factory: ViewModelFactory, startRoute: String = Screen.Dashboard
                     },
                     onCancel = { navController.popBackStack() }
                 )
+            }
+            composable(Screen.Chandra.route) {
+                val vm: ChandraViewModel = viewModel(factory = factory)
+                ChandraScreen(
+                    viewModel = vm,
+                    onOpenVoiceCommands = { navController.navigate(Screen.ChandraCommands.route) },
+                    onNavigate = { route ->
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.ChandraCommands.route) {
+                val parentEntry = androidx.compose.runtime.remember(navController) {
+                    navController.getBackStackEntry(Screen.Chandra.route)
+                }
+                val vm: ChandraViewModel = viewModel(parentEntry, factory = factory)
+                ChandraCommandsScreen(viewModel = vm)
             }
         }
     }

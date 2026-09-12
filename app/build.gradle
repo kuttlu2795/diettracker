@@ -85,7 +85,6 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.2'
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.2'
     implementation 'androidx.activity:activity-compose:1.9.0'
-    implementation 'androidx.health.connect:connect-client:1.1.0'
 
     // Compose
     implementation platform('androidx.compose:compose-bom:2024.06.00')
@@ -125,7 +124,12 @@ dependencies {
 
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
-    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1'
+
+    // Wearable sync - Health Connect (reads steps/weight/calories written by companion apps,
+    // e.g. boAt Wearables, Fitbit, Galaxy Wearable, if they sync to Health Connect on-device).
+    // Check https://developer.android.com/health-and-fitness/guides/health-connect/setup for
+    // the latest version if this fails to resolve.
+    implementation 'androidx.health.connect:connect-client:1.1.0-alpha07'
 
     // Testing
     testImplementation 'junit:junit:4.13.2'

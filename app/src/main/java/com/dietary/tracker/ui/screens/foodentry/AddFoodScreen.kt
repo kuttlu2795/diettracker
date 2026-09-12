@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.dietary.tracker.data.entities.FavoriteFood
 import com.dietary.tracker.data.entities.FoodEntry
 import com.dietary.tracker.network.NutritionResult
 import com.dietary.tracker.ui.theme.GreenPrimary
@@ -65,12 +66,19 @@ fun AddFoodScreen(
                 onMealTypeChange = viewModel::onMealTypeChange,
                 onMacroChange = viewModel::overrideMacro,
                 onClear = { viewModel.clearSelection() },
-                onSave = { viewModel.saveEntry("logged") }
+                onSave = { viewModel.saveEntry("logged") },
+                onSaveFavorite = { viewModel.saveCurrentAsFavorite() }
             )
         } else if (state.customizer == Customizer.EGG) {
             EggCustomizer(state.egg, viewModel::updateEgg, viewModel::confirmEggCustomizer, viewModel::cancelCustomizer)
         } else if (state.customizer == Customizer.JUICE) {
             JuiceCustomizer(state.juice, viewModel::updateJuice, viewModel::confirmJuiceCustomizer, viewModel::cancelCustomizer)
+        } else if (state.customizer == Customizer.COFFEE) {
+            CoffeeCustomizer(state.coffee, viewModel::updateCoffee, viewModel::confirmCoffeeCustomizer, viewModel::cancelCustomizer)
+        } else if (state.customizer == Customizer.RICE) {
+            RiceCustomizer(state.rice, viewModel::updateRice, viewModel::confirmRiceCustomizer, viewModel::cancelCustomizer)
+        } else if (state.customizer == Customizer.ROTI) {
+            RotiCustomizer(state.roti, viewModel::updateRoti, viewModel::confirmRotiCustomizer, viewModel::cancelCustomizer)
         } else {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
@@ -138,13 +146,24 @@ fun AddFoodScreen(
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     items(state.results) { result -> FoodResultRow(result) { viewModel.selectResult(result) } }
                 }
-            } else if (!state.isSearching && !state.aiLoading && !state.showAiOffer && recentFoods.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                Text("Recent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(recentFoods) { entry ->
-                        RecentFoodRow(entry) { viewModel.quickAddRecent(entry) }
+            } else if (!state.isSearching && !state.aiLoading && !state.showAiOffer) {
+                val favorites by viewModel.favorites.collectAsState()
+                if (favorites.isNotEmpty()) {
+                    Spacer(Modifier.height(20.dp))
+                    Text("⭐ Favorites", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    favorites.forEach { fav ->
+                        FavoriteFoodRow(fav, onClick = { viewModel.quickAddFavorite(fav) }, onDelete = { viewModel.deleteFavorite(fav) })
+                    }
+                }
+                if (recentFoods.isNotEmpty()) {
+                    Spacer(Modifier.height(20.dp))
+                    Text("Recent", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(8.dp))
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(recentFoods) { entry ->
+                            RecentFoodRow(entry) { viewModel.quickAddRecent(entry) }
+                        }
                     }
                 }
             }
@@ -169,6 +188,29 @@ private fun FoodResultRow(result: NutritionResult, onClick: () -> Unit) {
                 )
             }
             SourceBadge(result.badge)
+        }
+    }
+}
+
+@Composable
+private fun FavoriteFoodRow(favorite: FavoriteFood, onClick: () -> Unit, onDelete: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).clickable(onClick = onClick)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(favorite.name, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "${favorite.mealType} • ${favorite.quantityLabel} • ${favorite.calories.roundToInt()} kcal",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+            }
+            IconButton(onClick = onDelete) {
+                Text("✕", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+            }
         }
     }
 }
@@ -199,6 +241,7 @@ private fun SourceBadge(badge: String) {
     val (label, bg, fg) = when (badge) {
         "ai" -> Triple("AI Estimated", androidx.compose.ui.graphics.Color(0xFFFFF3E0), androidx.compose.ui.graphics.Color(0xFFE65100))
         "manual" -> Triple("Manual", androidx.compose.ui.graphics.Color(0xFFECEFF1), androidx.compose.ui.graphics.Color(0xFF37474F))
+        "restaurant" -> Triple("Restaurant", androidx.compose.ui.graphics.Color(0xFFE3F2FD), androidx.compose.ui.graphics.Color(0xFF0D47A1))
         else -> Triple("Database", androidx.compose.ui.graphics.Color(0xFFE8F5E9), androidx.compose.ui.graphics.Color(0xFF1B5E20))
     }
     Surface(color = bg, shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)) {
@@ -309,13 +352,119 @@ private fun JuiceCustomizer(
 }
 
 @Composable
+private fun CoffeeCustomizer(
+    coffee: CoffeeOptions,
+    onUpdate: ((CoffeeOptions) -> CoffeeOptions) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column {
+        Text("☕ Customize your coffee/tea", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        Text("Milk", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf("None", "Whole", "Skim", "Oat", "Soy").forEach { m ->
+                FilterChip(selected = coffee.milk == m, onClick = { onUpdate { it.copy(milk = m) } }, label = { Text(m) })
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Sugar (teaspoons)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            OutlinedButton(onClick = { onUpdate { it.copy(sugarTsp = (it.sugarTsp - 1).coerceAtLeast(0)) } }) { Text("-") }
+            Text("${coffee.sugarTsp}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            OutlinedButton(onClick = { onUpdate { it.copy(sugarTsp = (it.sugarTsp + 1).coerceAtMost(6)) } }) { Text("+") }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Cup size", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf(100, 150, 250).forEach { size ->
+                FilterChip(selected = coffee.volumeMl == size, onClick = { onUpdate { it.copy(volumeMl = size) } }, label = { Text("${size}ml") })
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            Button(onClick = onConfirm, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) {
+                Text("Get Nutrition")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RiceCustomizer(
+    rice: RiceOptions,
+    onUpdate: ((RiceOptions) -> RiceOptions) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column {
+        Text("🍚 Customize your rice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        Text("Type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            listOf("White", "Brown", "Basmati").forEach { t ->
+                FilterChip(selected = rice.type == t, onClick = { onUpdate { it.copy(type = t) } }, label = { Text(t) })
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Cups (cooked)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            OutlinedButton(onClick = { onUpdate { it.copy(cups = (it.cups - 1).coerceAtLeast(1)) } }) { Text("-") }
+            Text("${rice.cups}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            OutlinedButton(onClick = { onUpdate { it.copy(cups = (it.cups + 1).coerceAtMost(6)) } }) { Text("+") }
+        }
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            Button(onClick = onConfirm, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) {
+                Text("Get Nutrition")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RotiCustomizer(
+    roti: RotiOptions,
+    onUpdate: ((RotiOptions) -> RotiOptions) -> Unit,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Column {
+        Text("🫓 Customize your roti", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(16.dp))
+        Text("How many?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+            OutlinedButton(onClick = { onUpdate { it.copy(count = (it.count - 1).coerceAtLeast(1)) } }) { Text("-") }
+            Text("${roti.count}", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
+            OutlinedButton(onClick = { onUpdate { it.copy(count = (it.count + 1).coerceAtMost(10)) } }) { Text("+") }
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("Ghee", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+            FilterChip(selected = roti.ghee, onClick = { onUpdate { it.copy(ghee = true) } }, label = { Text("With Ghee") })
+            FilterChip(selected = !roti.ghee, onClick = { onUpdate { it.copy(ghee = false) } }, label = { Text("Plain") })
+        }
+        Spacer(Modifier.height(22.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) { Text("Cancel") }
+            Button(onClick = onConfirm, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) {
+                Text("Get Nutrition")
+            }
+        }
+    }
+}
+
+@Composable
 private fun SelectedFoodEditor(
     state: AddFoodUiState,
     onGramsChange: (String) -> Unit,
     onMealTypeChange: (String) -> Unit,
     onMacroChange: (String, Double) -> Unit,
     onClear: () -> Unit,
-    onSave: () -> Unit
+    onSave: () -> Unit,
+    onSaveFavorite: () -> Unit
 ) {
     val result = state.selected!!
     val gramsValue = state.grams.toDoubleOrNull() ?: 0.0
@@ -379,9 +528,11 @@ private fun SelectedFoodEditor(
         Spacer(Modifier.height(20.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             OutlinedButton(onClick = onClear, modifier = Modifier.weight(1f)) { Text("Back") }
-            Button(onClick = onSave, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) {
-                Text("Save Entry")
-            }
+            OutlinedButton(onClick = onSaveFavorite, modifier = Modifier.weight(1f)) { Text("⭐ Save Favorite") }
+        }
+        Spacer(Modifier.height(10.dp))
+        Button(onClick = onSave, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = GreenPrimary)) {
+            Text("Save Entry")
         }
     }
 }

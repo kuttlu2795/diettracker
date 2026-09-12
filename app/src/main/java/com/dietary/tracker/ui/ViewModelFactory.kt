@@ -9,8 +9,6 @@ class ViewModelFactory(
     private val repository: Repository,
     private val nutritionRepository: NutritionRepository
 ) : ViewModelProvider.Factory {
-    fun repositoryForUi(): Repository = repository
-
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return modelClass.getConstructor(Repository::class.java, NutritionRepository::class.java)

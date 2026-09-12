@@ -12,7 +12,13 @@ data class GeminiContent(
 )
 
 data class GeminiPart(
-    @SerializedName("text") val text: String
+    @SerializedName("text") val text: String? = null,
+    @SerializedName("inlineData") val inlineData: GeminiInlineData? = null
+)
+
+data class GeminiInlineData(
+    @SerializedName("mimeType") val mimeType: String,
+    @SerializedName("data") val data: String
 )
 
 data class GeminiGenerationConfig(

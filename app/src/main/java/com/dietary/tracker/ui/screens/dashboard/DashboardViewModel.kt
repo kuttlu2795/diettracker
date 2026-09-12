@@ -8,8 +8,23 @@ import com.dietary.tracker.network.NutritionRepository
 import com.dietary.tracker.util.Calculations
 import com.dietary.tracker.util.DateUtils
 import com.dietary.tracker.util.RangeType
+import com.dietary.tracker.util.StreakCalculator
+import com.dietary.tracker.util.StreakInfo
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
+data class MicronutrientTotals(
+    val vitaminCMg: Double = 0.0,
+    val vitaminAMcg: Double = 0.0,
+    val calciumMg: Double = 0.0,
+    val ironMg: Double = 0.0,
+    val potassiumMg: Double = 0.0,
+    val magnesiumMg: Double = 0.0,
+    val zincMg: Double = 0.0,
+    val vitaminDMcg: Double = 0.0,
+    val vitaminB12Mcg: Double = 0.0,
+    val folateMcg: Double = 0.0
+)
 
 data class DashboardUiState(
     val caloriesIntake: Double = 0.0,
@@ -25,7 +40,9 @@ data class DashboardUiState(
     val tdee: Double = 0.0,
     val netCalorieBalance: Double = 0.0,
     val estimatedWeightChangeKg: Double = 0.0,
-    val profile: UserProfile = UserProfile()
+    val profile: UserProfile = UserProfile(),
+    val micronutrients: MicronutrientTotals = MicronutrientTotals(),
+    val streak: StreakInfo = StreakInfo(0, 0, 0, 0, emptyList())
 )
 
 class DashboardViewModel(
@@ -37,20 +54,21 @@ class DashboardViewModel(
         repository.observeProfile(),
         foodTodayFlow(),
         waterTodayFlow(),
-        repository.observeStepsForDate(DateUtils.todayKey())
-    ) { profile, foodTotals, water, stepEntry ->
+        repository.observeStepsForDate(DateUtils.todayKey()),
+        repository.observeAllFood()
+    ) { profile, foodTotals, water, stepEntry, allFood ->
         val p = profile ?: UserProfile()
         val steps = stepEntry?.steps ?: 0
         val bmr = Calculations.bmr(p.currentWeightKg, p.heightCm, p.age, p.gender)
         val tdee = Calculations.tdee(bmr, p.activityLevel)
         val extraFromSteps = Calculations.caloriesFromSteps(steps, p.currentWeightKg)
         val totalBurnt = tdee + extraFromSteps
-        val netBalance = foodTotals.first - totalBurnt
+        val netBalance = foodTotals.calories - totalBurnt
 
         DashboardUiState(
-            caloriesIntake = foodTotals.first,
+            caloriesIntake = foodTotals.calories,
             caloriesGoal = p.dailyCalorieGoal,
-            proteinIntake = foodTotals.second,
+            proteinIntake = foodTotals.protein,
             proteinGoal = p.dailyProteinGoalG,
             waterMl = water,
             waterGoalMl = p.dailyWaterGoalMl,
@@ -61,16 +79,33 @@ class DashboardViewModel(
             tdee = tdee,
             netCalorieBalance = netBalance,
             estimatedWeightChangeKg = Calculations.weightChangeKg(netBalance),
-            profile = p
+            profile = p,
+            micronutrients = foodTotals.micronutrients,
+            streak = StreakCalculator.compute(allFood)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
+
+    private data class FoodTotals(val calories: Double, val protein: Double, val micronutrients: MicronutrientTotals)
 
     private fun foodTodayFlow() = run {
         val range = DateUtils.rangeFor(RangeType.TODAY)
         repository.foodEntriesBetween(range.start, range.end).map { entries ->
-            val cal = entries.sumOf { it.calories }
-            val protein = entries.sumOf { it.protein }
-            cal to protein
+            FoodTotals(
+                calories = entries.sumOf { it.calories },
+                protein = entries.sumOf { it.protein },
+                micronutrients = MicronutrientTotals(
+                    vitaminCMg = entries.sumOf { it.vitaminCMg },
+                    vitaminAMcg = entries.sumOf { it.vitaminAMcg },
+                    calciumMg = entries.sumOf { it.calciumMg },
+                    ironMg = entries.sumOf { it.ironMg },
+                    potassiumMg = entries.sumOf { it.potassiumMg },
+                    magnesiumMg = entries.sumOf { it.magnesiumMg },
+                    zincMg = entries.sumOf { it.zincMg },
+                    vitaminDMcg = entries.sumOf { it.vitaminDMcg },
+                    vitaminB12Mcg = entries.sumOf { it.vitaminB12Mcg },
+                    folateMcg = entries.sumOf { it.folateMcg }
+                )
+            )
         }
     }
 

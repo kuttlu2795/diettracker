@@ -14,6 +14,8 @@ class Repository(private val db: AppDatabase) {
 
     fun recentFood(limit: Int = 20): Flow<List<FoodEntry>> = db.foodDao().getRecent(limit)
 
+    fun observeAllFood(): Flow<List<FoodEntry>> = db.foodDao().observeAll()
+
     suspend fun addFood(entry: FoodEntry): Long = db.foodDao().insert(entry)
 
     suspend fun deleteFood(entry: FoodEntry) = db.foodDao().delete(entry)
@@ -64,8 +66,62 @@ class Repository(private val db: AppDatabase) {
 
     suspend fun saveWaterReminder(settings: WaterReminderSettings) = db.waterReminderDao().upsert(settings)
 
-    // ---------- Recipes / My Meals ----------
-    fun recipes(): Flow<List<Recipe>> = db.recipeDao().observeAll()
-    suspend fun addRecipe(recipe: Recipe): Long = db.recipeDao().insert(recipe)
-    suspend fun deleteRecipe(recipe: Recipe) = db.recipeDao().delete(recipe)
+    // ---------- Favorites ----------
+    fun observeFavorites(): Flow<List<FavoriteFood>> = db.favoriteFoodDao().observeAll()
+
+    suspend fun addFavorite(favorite: FavoriteFood) = db.favoriteFoodDao().insert(favorite)
+
+    suspend fun deleteFavorite(favorite: FavoriteFood) = db.favoriteFoodDao().delete(favorite)
+
+    // ---------- One-shot reads for CSV export ----------
+    suspend fun getAllFoodOnce(): List<FoodEntry> = db.foodDao().getAllOnce()
+
+    suspend fun getAllWaterOnce(): List<WaterEntry> = db.waterDao().getAllOnce()
+
+    suspend fun getAllWeightOnce(): List<WeightEntry> = db.weightDao().getAllOnce()
+
+    // ---------- Exercise ----------
+    suspend fun addExercise(entry: ExerciseEntry): Long = db.exerciseDao().insert(entry)
+
+    fun exerciseEntriesBetween(start: Long, end: Long): Flow<List<ExerciseEntry>> =
+        db.exerciseDao().getEntriesBetween(start, end)
+
+    suspend fun totalExerciseCaloriesBetween(start: Long, end: Long): Double =
+        db.exerciseDao().totalCaloriesBetween(start, end)
+
+    // ---------- Fasting ----------
+    suspend fun startFasting(targetHours: Int = 16): Long =
+        db.fastingDao().insert(FastingSession(startTimestamp = System.currentTimeMillis(), targetHours = targetHours))
+
+    suspend fun stopActiveFasting(): Boolean {
+        val active = db.fastingDao().getActive() ?: return false
+        db.fastingDao().update(active.copy(endTimestamp = System.currentTimeMillis()))
+        return true
+    }
+
+    suspend fun getActiveFasting(): FastingSession? = db.fastingDao().getActive()
+
+    fun observeActiveFasting(): Flow<FastingSession?> = db.fastingDao().observeActive()
+
+    fun observeRecentFasting(): Flow<List<FastingSession>> = db.fastingDao().observeRecent()
+
+    // ---------- Chandra ----------
+    fun observeChandraCustomCommands(): Flow<List<ChandraCustomCommand>> = db.chandraCustomCommandDao().observeAll()
+
+    suspend fun getAllChandraCustomCommandsOnce(): List<ChandraCustomCommand> = db.chandraCustomCommandDao().getAllOnce()
+
+    suspend fun addChandraCustomCommand(command: ChandraCustomCommand): Long = db.chandraCustomCommandDao().insert(command)
+
+    suspend fun deleteChandraCustomCommand(command: ChandraCustomCommand) = db.chandraCustomCommandDao().delete(command)
+
+    fun observeChandraRecentCommands(): Flow<List<ChandraRecentCommand>> = db.chandraRecentCommandDao().observeRecent()
+
+    suspend fun addChandraRecentCommand(entry: ChandraRecentCommand) = db.chandraRecentCommandDao().insert(entry)
+
+    fun observeChandraSettings(): Flow<ChandraSettings?> = db.chandraSettingsDao().observe()
+
+    suspend fun getChandraSettings(): ChandraSettings =
+        db.chandraSettingsDao().get() ?: ChandraSettings().also { db.chandraSettingsDao().upsert(it) }
+
+    suspend fun saveChandraSettings(settings: ChandraSettings) = db.chandraSettingsDao().upsert(settings)
 }

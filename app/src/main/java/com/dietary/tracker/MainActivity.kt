@@ -21,39 +21,25 @@ class MainActivity : ComponentActivity() {
     private lateinit var stepCounterManager: StepCounterManager
 
     private val permissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* sensor/notification features gracefully degrade when denied */ }
+        ActivityResultContracts.RequestPermission()
+    ) { /* result handled implicitly; sensor just won't report without it */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (intent?.getBooleanExtra("open_chandra", false) == true) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-        }
 
         val app = application as DietTrackerApp
         stepCounterManager = StepCounterManager(this, app.repository, lifecycleScope)
 
-        val permissions = buildList {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                add(Manifest.permission.ACTIVITY_RECOGNITION)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-            add(Manifest.permission.RECORD_AUDIO)
-        }.toTypedArray()
-        if (permissions.isNotEmpty()) permissionLauncher.launch(permissions)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+        }
 
         val factory = ViewModelFactory(app.repository, app.nutritionRepository)
 
         setContent {
             DietTrackerTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    AppNavGraph(
-                        factory = factory,
-                        startRoute = if (intent?.getBooleanExtra("open_chandra", false) == true) "chandra" else "dashboard"
-                    )
+                    AppNavGraph(factory = factory)
                 }
             }
         }

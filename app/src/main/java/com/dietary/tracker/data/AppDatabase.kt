@@ -8,8 +8,8 @@ import com.dietary.tracker.data.dao.*
 import com.dietary.tracker.data.entities.*
 
 @Database(
-    entities = [FoodEntry::class, WaterEntry::class, WeightEntry::class, StepEntry::class, UserProfile::class, WaterReminderSettings::class, Recipe::class],
-    version = 2,
+    entities = [FoodEntry::class, WaterEntry::class, WeightEntry::class, StepEntry::class, UserProfile::class, WaterReminderSettings::class, FavoriteFood::class, ExerciseEntry::class, FastingSession::class, ChandraCustomCommand::class, ChandraRecentCommand::class, ChandraSettings::class],
+    version = 1,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -19,7 +19,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun stepDao(): StepDao
     abstract fun userProfileDao(): UserProfileDao
     abstract fun waterReminderDao(): WaterReminderDao
-    abstract fun recipeDao(): RecipeDao
+    abstract fun favoriteFoodDao(): FavoriteFoodDao
+    abstract fun exerciseDao(): ExerciseDao
+    abstract fun fastingDao(): FastingDao
+    abstract fun chandraCustomCommandDao(): ChandraCustomCommandDao
+    abstract fun chandraRecentCommandDao(): ChandraRecentCommandDao
+    abstract fun chandraSettingsDao(): ChandraSettingsDao
 
     companion object {
         @Volatile
